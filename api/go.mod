@@ -1,4 +1,4 @@
-module github.com/thesilentline/url-shortner
+module github.com/thesilentline/shorten-url-project
 
 go 1.20
 
