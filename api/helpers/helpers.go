@@ -1,6 +1,9 @@
 package helpers
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 func EnforceHTTP(url string) string {
 
@@ -17,7 +20,7 @@ func RemoveDomainError(url string) bool {
 		return false
 	}
 
-	newURL := strings.Replace(url,"http://","",1)
+	newURL := strings.Replace(url,"http://","",1)		//1 argument specifies that only the first occurrence should be replaced
 	newURL = strings.Replace(newURL,"https://","",1)
 	newURL = strings.Replace(newURL,"www.","",1)
 	newURL = strings.Split(newURL,"/")[0]
