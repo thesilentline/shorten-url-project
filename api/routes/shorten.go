@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/thesilentline/shorten-url-project/database"
 	"github.com/thesilentline/shorten-url-project/helpers"
+	"github.com/asaskevich/govalidator"
+	"github.com/go-redis/redis/v8"
 )
 
 type request struct {
@@ -39,11 +41,11 @@ func ShortenURL(c *fiber.Ctx) error {
 	r2 := database.CreateClient(1)	// redis database client
 	defer r2.Close()
 
-	val, err := r2.GET(database.Ctx, c.IP()).Result()
+	val, err := r2.Get(database.Ctx, c.IP()).Result()
 	if err == redis.Nil {
-		_ = r2.SET(database.Ctx, c.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
+		_ = r2.Set(database.Ctx, c.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
 	} else {
-		val, _ = r2.GET(database.Ctx, c.IP()).Result()
+		val, _ = r2.Get(database.Ctx, c.IP()).Result()
 		valInt, _ := strconv.Atoi(val)
 
 		if valInt <= 0 {
@@ -81,7 +83,7 @@ func ShortenURL(c *fiber.Ctx) error {
 	r := database.CreateClient(0)
 	defer r.Close()
 
-	val, _ = r.GET(database.Ctx, id).Result()
+	val, _ = r.Get(database.Ctx, id).Result()
 	if val != "" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error":"URL short already in use",
@@ -92,7 +94,7 @@ func ShortenURL(c *fiber.Ctx) error {
 		body.Expiry = 24
 	}
 
-	err = c.SET(database.Ctx, id, body.URL, body.Expiry*3600*time.Second).Err()
+	err = r.Set(database.Ctx, id, body.URL, body.Expiry * 3600 * time.Second).Err()
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -111,7 +113,7 @@ func ShortenURL(c *fiber.Ctx) error {
 	// decrement the counter
 	r2.Decr(database.Ctx, c.IP())
 	
-	val, _ = r2.GET(database.Ctx, c.IP()).Result()
+	val, _ = r2.Get(database.Ctx, c.IP()).Result()
 	resp.XRateRemaining, _ = strconv.Atoi(val)
 
 	ttl, _ := r2.TTL(database.Ctx, c.IP()).Result()
