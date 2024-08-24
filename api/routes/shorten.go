@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/thesilentline/shorten-url-project/database"
 	"github.com/thesilentline/shorten-url-project/helpers"
 )
@@ -68,7 +69,53 @@ func ShortenURL(c *fiber.Ctx) error {
 	//enforce HTTP SSL
 	body.URL = helpers.EnforceHTTP(body.URL)
 
+	// custome URL
+	var id string
+
+	if body.CustomShort == "" {
+		id = uuid.New().String()[:6]	// generates a short, unique identifier using the uuid package
+	} else {
+		id = body.CustomShort
+	}
+
+	r := database.CreateClient(0)
+	defer r.Close()
+
+	val, _ = r.GET(database.Ctx, id).Result()
+	if val != "" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":"URL short already in use",
+		})
+	}
+
+	if body.Expiry == 0 {
+		body.Expiry = 24
+	}
+
+	err = c.SET(database.Ctx, id, body.URL, body.Expiry*3600*time.Second).Err()
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":"unable to connect to server",
+		})
+	}
+
+	resp := response {
+		URL:				body.URL,
+		CustomShort:		"",
+		Expiry:				body.Expiry,
+		XRateRemaining:		10,
+		XRateLimitReset:	30,
+	}
+
 	// decrement the counter
 	r2.Decr(database.Ctx, c.IP())
+	
+	val, _ = r2.GET(database.Ctx, c.IP()).Result()
+	resp.XRateRemaining, _ = strconv.Atoi(val)
 
+	ttl, _ := r2.TTL(database.Ctx, c.IP()).Result()
+	resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
+
+	resp.CustomShort = os.Getenv("DOMAIN") + "/" + id
 }
