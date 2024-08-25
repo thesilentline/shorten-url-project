@@ -26,7 +26,7 @@ docker-compose up -d
 
 ![image.png](Screenshot/image.png)
 
-![image.png](Screenshot/image 1.png)
+![image.png](Screenshot/image-last.png)
 
 ### Tech Stack:
 
